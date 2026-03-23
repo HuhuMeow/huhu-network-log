@@ -1,59 +1,97 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <title>Network Issues Tracker</title>
+    <title>Network Log</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
-        body { background-color: #1a1a1a; color: white; font-family: sans-serif; }
-        #main { width: 1000px; height: 300px; margin: 50px auto; }
-        h2 { text-align: center; }
+        /* 极简白底风格 */
+        body { 
+            background-color: #ffffff; 
+            color: #333; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        /* 容器大小显式声明，确保图表能渲染出来 */
+        #main { 
+            width: 850px; 
+            height: 200px; 
+        }
+        /* 下方的文字说明区域 */
+        .description {
+            margin-top: 20px;
+            max-width: 600px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
-    <h2>网络故障监控报告 (红色告警版)</h2>
+
     <div id="main"></div>
+
+    <div class="description">
+        这是一个手动更新的网络故障记录看板。每一个红色方块代表当天遭遇的网络波动次数，颜色越深，代表断网情况越严重。
+    </div>
 
     <script>
         var chartDom = document.getElementById('main');
-        var myChart = echarts.init(chartDom, 'dark');
+        var myChart = echarts.init(chartDom); // 移除 'dark' 模式，回归亮色
 
-        // 获取数据
-        fetch('data.json')
+        // 路径建议使用相对路径 './data.json' 以确保在 GitHub Pages 正常加载
+        fetch('./data.json')
             .then(res => res.json())
             .then(data => {
                 const option = {
-                    backgroundColor: 'transparent',
-                    tooltip: { position: 'top' },
+                    tooltip: { 
+                        formatter: function (p) {
+                            return p.data[0] + ' : ' + p.data[1] + ' 次故障';
+                        }
+                    },
                     visualMap: {
                         min: 0,
                         max: 10,
-                        type: 'piecewise',
-                        orient: 'horizontal',
-                        left: 'center',
-                        top: 0,
-                        // 这里定义红色的深浅梯度
-                        inRange: { color: ['#301010', '#ff0000'] } 
+                        show: false, // 极简主义：隐藏侧边进度条
+                        inRange: { 
+                            // 浅红色到深红色的渐变
+                            color: ['#fde8e8', '#e02424'] 
+                        }
                     },
                     calendar: {
-                        top: 80,
-                        left: 30,
-                        right: 30,
-                        cellSize: ['auto', 13],
-                        range: '2026', // 也可以根据数据自动调整年份
-                        itemStyle: { borderWidth: 0.5, borderColor: '#1a1a1a' },
-                        yearLabel: { show: true },
-                        dayLabel: { firstDay: 1, nameMap: 'cn' }
+                        top: 20,
+                        left: 'center',
+                        range: '2026',
+                        cellSize: [13, 13],
+                        splitLine: { show: false },
+                        itemStyle: {
+                            borderWidth: 2,
+                            borderColor: '#fff' // 方格间的白线
+                        },
+                        yearLabel: { show: false }, // 隐藏年份
+                        dayLabel: { nameMap: 'cn', firstDay: 1 },
+                        monthLabel: { nameMap: 'cn' }
                     },
                     series: {
-                        type: 'scatter',
+                        type: 'heatmap', // 改用 heatmap 效果更像贡献图
                         coordinateSystem: 'calendar',
-                        symbolSize: 10,
                         data: data
                     }
                 };
                 myChart.setOption(option);
-            });
+            })
+            .catch(err => console.error('数据加载失败:', err));
+
+        // 响应式处理
+        window.onresize = function() {
+            myChart.resize();
+        };
     </script>
 </body>
 </html>
