@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Network Issues Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        body { background-color: #1a1a1a; color: white; font-family: sans-serif; }
+        #main { width: 1000px; height: 300px; margin: 50px auto; }
+        h2 { text-align: center; }
+    </style>
+</head>
+<body>
+    <h2>网络故障监控报告 (红色告警版)</h2>
+    <div id="main"></div>
+
+    <script>
+        var chartDom = document.getElementById('main');
+        var myChart = echarts.init(chartDom, 'dark');
+
+        // 获取数据
+        fetch('data.json')
+            .then(res => res.json())
+            .then(data => {
+                const option = {
+                    backgroundColor: 'transparent',
+                    tooltip: { position: 'top' },
+                    visualMap: {
+                        min: 0,
+                        max: 10,
+                        type: 'piecewise',
+                        orient: 'horizontal',
+                        left: 'center',
+                        top: 0,
+                        // 这里定义红色的深浅梯度
+                        inRange: { color: ['#301010', '#ff0000'] } 
+                    },
+                    calendar: {
+                        top: 80,
+                        left: 30,
+                        right: 30,
+                        cellSize: ['auto', 13],
+                        range: '2026', // 也可以根据数据自动调整年份
+                        itemStyle: { borderWidth: 0.5, borderColor: '#1a1a1a' },
+                        yearLabel: { show: true },
+                        dayLabel: { firstDay: 1, nameMap: 'cn' }
+                    },
+                    series: {
+                        type: 'scatter',
+                        coordinateSystem: 'calendar',
+                        symbolSize: 10,
+                        data: data
+                    }
+                };
+                myChart.setOption(option);
+            });
+    </script>
+</body>
+</html>
