@@ -2,11 +2,10 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Huhu Miao's Network Log</title>
     <style>
         :root {
-            /* GitHub 风格红色调变量 */
             --color-calendar-graph-day-bg: #ebedf0;
             --color-calendar-graph-day-L1-bg: #fecaca;
             --color-calendar-graph-day-L2-bg: #f87171;
@@ -15,44 +14,93 @@
             --color-text-primary: #24292f;
             --color-text-muted: #57606a;
             --color-border-default: #d0d7de;
-            --color-accent-fg: #0969da; /* GitHub 风格链接蓝 */
+            --color-accent-fg: #0969da;
         }
 
+        * { box-sizing: border-box; }
+
+        /* 1. Sticky Footer 布局基础 */
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            display: flex; flex-direction: column; align-items: center; 
-            justify-content: flex-start; 
-            padding-top: 50px;
-            min-height: 100vh; margin: 0; background: #fff; color: var(--color-text-primary);
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            margin: 0; 
+            background: #fff; 
+            color: var(--color-text-primary);
         }
 
-        /* 贡献图主容器 */
-        .calendar-wrapper {
-            padding: 20px;
+        /* 2. 内容包装器：统一控制对齐和响应式页边距 */
+        .content-wrapper {
+            width: 100%;
+            max-width: 848px; /* 800px内容 + 两侧各24px边距 */
+            padding: 50px 24px 0 24px; /* 增加窄屏时的水平边距至 24px */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start; /* 核心：确保内部元素全部左对齐 */
+            min-height: 100vh; /* 确保内容区至少占满一屏，footer 被推到下方需要滚动 */
+        }
+
+        /* 统计标题：现在与展板左对齐 */
+        .header-stats {
+            width: 100%;
+            font-size: 16px; 
+            margin-bottom: 12px; 
+            font-weight: 400; 
+            text-align: left;
+        }
+
+        /* 展板容器 */
+        .calendar-card {
+            width: 100%;
             border: 1px solid var(--color-border-default);
             border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 24px;
             background: #fff;
-            display: inline-block;
-            margin-bottom: 30px;
-            /* 3. 为 Tooltip absolute 定位提供参考 */
-            position: relative; 
         }
 
-        /* 鼠标悬浮格子变深边框 */
-        .day:hover { stroke: rgba(27, 31, 35, 0.06); stroke-width: 1px; }
+        /* 滚动条逻辑：隐藏原生滚动条，使用自定义滚动条 */
+        .scroll-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+        }
+        .scroll-wrapper::-webkit-scrollbar { display: none; }
+        .scroll-wrapper { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* 标签字体样式 */
-        .label { fill: var(--color-text-muted); font-size: 10px; }
+        /* 自定义滚动条容器 */
+        .custom-scrollbar-track {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            pointer-events: none;
+        }
+        .custom-scrollbar-thumb {
+            position: absolute;
+            height: 100%;
+            min-width: 30px;
+            background: #d0d7de;
+            border-radius: 10px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .custom-scrollbar-thumb.visible {
+            opacity: 1;
+        }
 
-        /* 悬浮气泡 - 3. 修改为 absolute 定位以适配移动端滚动 */
+        /* Tooltip 坐标修复 */
         #tooltip {
-            position: absolute; /* 相对于 .calendar-wrapper 定位 */
+            position: fixed;
             background: #24292f; color: #fff;
             padding: 8px 12px; font-size: 12px; border-radius: 6px;
             pointer-events: none; visibility: hidden; opacity: 0;
-            transition: opacity 0.1s ease; white-space: nowrap; z-index: 100;
-            transform: translate(-50%, -130%); /* 保持居中和偏移 */
-            box-shadow: 0 8px 24px rgba(140,149,159,0.2);
+            transition: opacity 0.1s ease; white-space: nowrap; z-index: 1000;
+            transform: translate(-50%, -100%) translateY(-10px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
         }
         #tooltip::after {
             content: ""; position: absolute; bottom: -5px; left: 50%;
@@ -60,41 +108,27 @@
             border-style: solid; border-color: #24292f transparent transparent;
         }
 
+        .label { fill: var(--color-text-muted); font-size: 10px; }
+        .day:hover { stroke: rgba(0,0,0,0.1); stroke-width: 1px; }
+
         .calendar-footer {
-            margin-top: 10px; display: flex; justify-content: space-between;
-            align-items: center; width: 100%; max-width: 780px;
+            margin-top: 16px; display: flex; 
+            justify-content: space-between; align-items: center;
         }
+        .footer-link { font-size: 12px; color: var(--color-text-muted); text-decoration: none; }
         .legend { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--color-text-muted); }
         .legend-box { width: 10px; height: 10px; border-radius: 2px; }
 
-        /* 文字区域样式 */
         .about-section {
             width: 100%;
-            /* 展板总宽度 = 780(SVG) + 40(Padding) + 2(Border) = 822px */
-            /* 800px 小于 822px，在桌面端看起来美观，文字会向左靠拢 */
-            max-width: 800px; 
-            color: var(--color-text-primary);
-            font-size: 14px;
-            line-height: 1.8;
-            margin-bottom: 80px;
-            /* 两端对齐，在中英文混排时效果最好 */
-            text-align: justify;
-            /* 确保中英文混排时的对齐效果 */
-            word-break: break-all;
+            font-size: 14px; line-height: 1.8;
+            text-align: justify; word-break: break-all;
+            margin-bottom: 40px;
         }
-        
-        /* 链接样式 */
-        .about-section a {
-            color: var(--color-accent-fg);
-            text-decoration: none;
-        }
-        .about-section a:hover {
-            text-decoration: underline;
-        }
+        .about-section a { color: var(--color-accent-fg); text-decoration: none; }
 
-        /* 页脚声明样式 */
+        /* 3. 沉底页脚声明 */
         .site-footer {
-            margin-top: auto; 
             padding: 24px 0;
             border-top: 1px solid var(--color-border-default);
             width: 100%;
@@ -102,65 +136,70 @@
             font-size: 12px;
             color: var(--color-text-muted);
             background-color: #f6f8fa;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .site-footer.visible {
+            opacity: 1;
+            transform: translateY(0);
         }
 
-        /* 2. 添加移动端媒体查询以实现响应式设计 */
-        @media (max-width: 850px) {
-            .calendar-wrapper {
-                display: block; /* 占满宽度 */
-                overflow-x: auto; /* 允许水平滚动以查看完整展板 */
-                -webkit-overflow-scrolling: touch; /* 平滑滚动 */
-                padding: 20px 10px; /* 减少移动端侧边 padding */
-            }
-            .calendar-footer {
-                max-width: none; /* 移除 footer 的 max-width，让它跟随容器 */
-            }
-            body {
-                padding-top: 30px; /* 减少移动端顶部 padding */
-            }
+        @media (max-width: 600px) {
+            .content-wrapper { padding-top: 30px; }
+            .header-stats { font-size: 14px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="calendar-wrapper">
-        <div id="tooltip"></div>
-        <svg id="calendar-svg" width="780" height="130"></svg>
-        
-        <div class="calendar-footer">
-            <div style="font-size: 12px; color: var(--color-text-muted);">Huhumeow Status</div>
-            <div class="legend">
-                <span>Less</span>
-                <div class="legend-box" style="background: var(--color-calendar-graph-day-bg);"></div>
-                <div class="legend-box" style="background: var(--color-calendar-graph-day-L1-bg);"></div>
-                <div class="legend-box" style="background: var(--color-calendar-graph-day-L2-bg);"></div>
-                <div class="legend-box" style="background: var(--color-calendar-graph-day-L3-bg);"></div>
-                <div class="legend-box" style="background: var(--color-calendar-graph-day-L4-bg);"></div>
-                <span>More</span>
+    <div class="content-wrapper">
+        <h2 class="header-stats" id="total-count">Calculating...</h2>
+
+        <div class="calendar-card">
+            <div id="tooltip"></div>
+            <div class="scroll-area" style="position: relative;">
+                <div class="scroll-wrapper" id="scroll-container">
+                    <svg id="calendar-svg" width="780" height="130"></svg>
+                </div>
+                <div class="custom-scrollbar-track">
+                    <div class="custom-scrollbar-thumb" id="scrollbar-thumb"></div>
+                </div>
             </div>
+            
+            <div class="calendar-footer">
+                <a href="https://github.com/HuhuMeow" target="_blank" class="footer-link">Learn how we count issues</a>
+                <div class="legend">
+                    <span>Less</span>
+                    <div class="legend-box" style="background: var(--color-calendar-graph-day-bg);"></div>
+                    <div class="legend-box" style="background: var(--color-calendar-graph-day-L1-bg);"></div>
+                    <div class="legend-box" style="background: var(--color-calendar-graph-day-L2-bg);"></div>
+                    <div class="legend-box" style="background: var(--color-calendar-graph-day-L3-bg);"></div>
+                    <div class="legend-box" style="background: var(--color-calendar-graph-day-L4-bg);"></div>
+                    <span>More</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="about-section">
+          <p>因众所周知的原因，呼呼喵需使用一些妙妙工具来访问互联网，然而，即便呼呼喵已经花费了大量的金钱和时间来配置这些道具，它们仍会时常因各种神秘原因停止运作。</p>
+          <p>尝试访问 Claude 可以有效检查网络环境。当无法访问 Claude 时，我将更新此网页对应 Github 仓库中的 json 文件。相邻两次更新的间隔不会少于三个小时。</p>
+          <p>本网页会可视化 json 中的信息，以直观展示呼呼喵的联网困境。</p>
+          <p>欢迎访问呼呼喵的 <a href="https://github.com/HuhuMeow" target="_blank">Github 主页</a> 。</p>
         </div>
     </div>
 
-    <div class="about-section">
-        <p>因众所周知的原因，呼呼喵需使用大量妙妙工具来访问互联网，然而，即便呼呼喵已经花费了大量的金钱和时间来配置这些道具，它们仍会因各种神秘原因停止运作。</p>
-        <p>尝试访问 Claude 可以有效检查自己的网络环境。当无法访问 Claude 时，我会更新此网页对应 Github 仓库中的 json 文件。相邻两次更新的间隔不会少于三个小时。</p>
-        <p>本网页会可视化 json 中的信息，以直观展示呼呼喵的联网困境。</p>
-        <p>欢迎访问呼呼喵的 <a href="https://github.com/HuhuMeow" target="_blank">Github 主页</a> 。</p>
-    </div>
-
     <footer class="site-footer">
-        This page was crafted by Gemini 3 Thinking
+      <i>This page was crafted by Claude Opus 4.6 & Gemini 3 Thinking</i>
     </footer>
 
     <script>
         const year = 2026;
         const svg = document.getElementById('calendar-svg');
         const tooltip = document.getElementById('tooltip');
-        
-        // 布局参数
+        const scrollContainer = document.getElementById('scroll-container');
         const boxSize = 11, gap = 4, leftMargin = 30, topMargin = 20;
 
-        // 颜色映射函数
         function getColor(count) {
             if (!count || count === 0) return 'var(--color-calendar-graph-day-bg)';
             if (count <= 3) return 'var(--color-calendar-graph-day-L1-bg)';
@@ -169,36 +208,31 @@
             return 'var(--color-calendar-graph-day-L4-bg)';
         }
 
-        // 加载 JSON 数据，支持本地预览的自动降级鲁棒方案
         async function loadDataAndRender() {
+            const fallbackData = {
+                "2026-03-20": 2, "2026-03-23": 10, "2026-03-24": 3
+            };
+
             try {
-                // 尝试加载数据
-                const response = await fetch('data.json');
-                if (!response.ok) throw new Error('Data file not found');
+                const response = await fetch(`data.json?t=${Date.now()}`);
+                if (!response.ok) throw new Error('File not reachable');
                 const networkData = await response.json();
-                
-                // 成功加载则渲染真实数据
                 render(networkData);
-                console.log("Data loaded successfully from data.json");
+                updateStats(networkData);
             } catch (err) {
-                // 如果 fetch 失败（例如本地 CORS 限制），使用内置备用数据供预览
-                console.warn("Unable to load data.json (CORS or missing file). Using fallback data for preview.", err);
-                
-                // 内置备用数据 (演示用)
-                const fallbackData = {
-                    "2026-03-20": 2, "2026-03-23": 10, "2026-03-24": 3
-                };
-                
+                console.warn("Fallback Mode Activated:", err.message);
                 render(fallbackData);
+                updateStats(fallbackData);
             }
         }
 
-        // 渲染 SVG 逻辑
-        function render(networkData) {
-            // 清空现有 SVG 内容（防止重复渲染）
-            while (svg.firstChild) { svg.removeChild(svg.firstChild); }
+        function updateStats(data) {
+            const total = Object.values(data).reduce((a, b) => a + b, 0);
+            document.getElementById('total-count').textContent = `${total} issues in ${year}`;
+        }
 
-            // 渲染星期标签 (Mon, Wed, Fri)
+        function render(networkData) {
+            svg.innerHTML = '';
             const days = ['Mon', 'Wed', 'Fri'];
             days.forEach((day, i) => {
                 const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -210,22 +244,18 @@
             });
 
             const startDate = new Date(year, 0, 1);
-            const startDayOffset = (startDate.getDay() + 6) % 7; // 让周一作为第一行
-            
+            const startDayOffset = (startDate.getDay() + 6) % 7; 
             let currentMonth = -1;
 
-            // 循环生成 366 天（适配闰年）
             for (let i = 0; i < 366; i++) {
                 const date = new Date(year, 0, 1 + i);
                 if (date.getFullYear() !== year) break;
 
                 const dateStr = date.toISOString().split('T')[0];
                 const count = networkData[dateStr] || 0;
-
                 const weekIndex = Math.floor((i + startDayOffset) / 7);
                 const dayIndex = (i + startDayOffset) % 7;
 
-                // 渲染月份标签 (Jan, Feb, ...)
                 if (date.getMonth() !== currentMonth) {
                     currentMonth = date.getMonth();
                     const monthText = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -236,45 +266,82 @@
                     svg.appendChild(monthText);
                 }
 
-                // 创建矩形格子
                 const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                 rect.setAttribute("x", leftMargin + weekIndex * (boxSize + gap));
                 rect.setAttribute("y", topMargin + dayIndex * (boxSize + gap));
                 rect.setAttribute("width", boxSize);
                 rect.setAttribute("height", boxSize);
-                rect.setAttribute("rx", 2); // 圆角
+                rect.setAttribute("rx", 2);
                 rect.setAttribute("fill", getColor(count));
                 rect.setAttribute("class", "day");
 
-                // 3. 交互逻辑：使用 absolute 定位以适配移动端滚动
-                rect.onmouseenter = (e) => {
+                rect.addEventListener('mouseenter', () => {
                     const msg = count > 0 ? `${count} network issues` : 'No network issues';
                     const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-                    
                     tooltip.innerHTML = `<strong>${msg}</strong><br/>${formattedDate}`;
                     tooltip.style.visibility = 'visible';
                     tooltip.style.opacity = '1';
-                    
-                    // 获取 rect 的坐标 (x, y) 相对于 SVG
-                    const rectX = rect.getAttribute('x') * 1;
-                    const rectY = rect.getAttribute('y') * 1;
 
-                    // Tooltip 在容器内 absolute 定位
-                    // 相对于 .calendar-wrapper 定位，不需要考虑 window.scrollX
-                    tooltip.style.left = (rectX + boxSize/2) + 'px';
-                    tooltip.style.top = (rectY) + 'px';
-                };
-                rect.onmouseleave = () => {
+                    const box = rect.getBoundingClientRect();
+                    tooltip.style.left = (box.left + boxSize / 2) + 'px';
+                    tooltip.style.top = (box.top) + 'px';
+                });
+
+                rect.addEventListener('mouseleave', () => {
                     tooltip.style.visibility = 'hidden';
                     tooltip.style.opacity = '0';
-                };
+                });
 
                 svg.appendChild(rect);
             }
+            scrollContainer.scrollLeft = 0;
         }
 
-        // 初始化
         loadDataAndRender();
+
+        // Custom scrollbar: fade in on scroll, fade out after inactivity
+        const scrollThumb = document.getElementById('scrollbar-thumb');
+        let scrollTimer = null;
+
+        function updateScrollbar() {
+            const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
+            if (scrollWidth <= clientWidth) {
+                scrollThumb.style.display = 'none';
+                return;
+            }
+            scrollThumb.style.display = '';
+            const trackWidth = scrollContainer.clientWidth;
+            const thumbWidth = Math.max(30, (clientWidth / scrollWidth) * trackWidth);
+            const maxScrollLeft = scrollWidth - clientWidth;
+            const thumbLeft = (scrollLeft / maxScrollLeft) * (trackWidth - thumbWidth);
+            scrollThumb.style.width = thumbWidth + 'px';
+            scrollThumb.style.left = thumbLeft + 'px';
+        }
+
+        scrollContainer.addEventListener('scroll', () => {
+            updateScrollbar();
+            scrollThumb.classList.add('visible');
+            clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(() => {
+                scrollThumb.classList.remove('visible');
+            }, 1500);
+        });
+
+        // Initialize scrollbar position
+        updateScrollbar();
+
+        // Footer: reveal when scrolled into view using IntersectionObserver
+        const footer = document.querySelector('.site-footer');
+        const footerObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    footer.classList.add('visible');
+                } else {
+                    footer.classList.remove('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+        footerObserver.observe(footer);
     </script>
 </body>
 </html>
