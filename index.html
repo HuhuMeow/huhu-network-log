@@ -2,96 +2,279 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <title>Network Log</title>
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Huhu Miao's Network Log</title>
     <style>
-        /* 极简白底风格 */
+        :root {
+            /* GitHub 风格红色调变量 */
+            --color-calendar-graph-day-bg: #ebedf0;
+            --color-calendar-graph-day-L1-bg: #fecaca;
+            --color-calendar-graph-day-L2-bg: #f87171;
+            --color-calendar-graph-day-L3-bg: #ef4444;
+            --color-calendar-graph-day-L4-bg: #b91c1c;
+            --color-text-primary: #24292f;
+            --color-text-muted: #57606a;
+            --color-border-default: #d0d7de;
+            --color-accent-fg: #0969da; /* GitHub 风格链接蓝 */
+        }
+
         body { 
-            background-color: #ffffff; 
-            color: #333; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
+            display: flex; flex-direction: column; align-items: center; 
+            justify-content: flex-start; 
+            padding-top: 50px;
+            min-height: 100vh; margin: 0; background: #fff; color: var(--color-text-primary);
         }
-        /* 容器大小显式声明，确保图表能渲染出来 */
-        #main { 
-            width: 850px; 
-            height: 200px; 
+
+        /* 贡献图主容器 */
+        .calendar-wrapper {
+            padding: 20px;
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            background: #fff;
+            display: inline-block;
+            margin-bottom: 30px;
+            /* 3. 为 Tooltip absolute 定位提供参考 */
+            position: relative; 
         }
-        /* 下方的文字说明区域 */
-        .description {
-            margin-top: 20px;
-            max-width: 600px;
-            text-align: center;
+
+        /* 鼠标悬浮格子变深边框 */
+        .day:hover { stroke: rgba(27, 31, 35, 0.06); stroke-width: 1px; }
+
+        /* 标签字体样式 */
+        .label { fill: var(--color-text-muted); font-size: 10px; }
+
+        /* 悬浮气泡 - 3. 修改为 absolute 定位以适配移动端滚动 */
+        #tooltip {
+            position: absolute; /* 相对于 .calendar-wrapper 定位 */
+            background: #24292f; color: #fff;
+            padding: 8px 12px; font-size: 12px; border-radius: 6px;
+            pointer-events: none; visibility: hidden; opacity: 0;
+            transition: opacity 0.1s ease; white-space: nowrap; z-index: 100;
+            transform: translate(-50%, -130%); /* 保持居中和偏移 */
+            box-shadow: 0 8px 24px rgba(140,149,159,0.2);
+        }
+        #tooltip::after {
+            content: ""; position: absolute; bottom: -5px; left: 50%;
+            transform: translateX(-50%); border-width: 5px 5px 0;
+            border-style: solid; border-color: #24292f transparent transparent;
+        }
+
+        .calendar-footer {
+            margin-top: 10px; display: flex; justify-content: space-between;
+            align-items: center; width: 100%; max-width: 780px;
+        }
+        .legend { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--color-text-muted); }
+        .legend-box { width: 10px; height: 10px; border-radius: 2px; }
+
+        /* 文字区域样式 */
+        .about-section {
+            width: 100%;
+            /* 展板总宽度 = 780(SVG) + 40(Padding) + 2(Border) = 822px */
+            /* 800px 小于 822px，在桌面端看起来美观，文字会向左靠拢 */
+            max-width: 800px; 
+            color: var(--color-text-primary);
             font-size: 14px;
-            color: #666;
-            line-height: 1.6;
+            line-height: 1.8;
+            margin-bottom: 80px;
+            /* 两端对齐，在中英文混排时效果最好 */
+            text-align: justify;
+            /* 确保中英文混排时的对齐效果 */
+            word-break: break-all;
+        }
+        
+        /* 链接样式 */
+        .about-section a {
+            color: var(--color-accent-fg);
+            text-decoration: none;
+        }
+        .about-section a:hover {
+            text-decoration: underline;
+        }
+
+        /* 页脚声明样式 */
+        .site-footer {
+            margin-top: auto; 
+            padding: 24px 0;
+            border-top: 1px solid var(--color-border-default);
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+            color: var(--color-text-muted);
+            background-color: #f6f8fa;
+        }
+
+        /* 2. 添加移动端媒体查询以实现响应式设计 */
+        @media (max-width: 850px) {
+            .calendar-wrapper {
+                display: block; /* 占满宽度 */
+                overflow-x: auto; /* 允许水平滚动以查看完整展板 */
+                -webkit-overflow-scrolling: touch; /* 平滑滚动 */
+                padding: 20px 10px; /* 减少移动端侧边 padding */
+            }
+            .calendar-footer {
+                max-width: none; /* 移除 footer 的 max-width，让它跟随容器 */
+            }
+            body {
+                padding-top: 30px; /* 减少移动端顶部 padding */
+            }
         }
     </style>
 </head>
 <body>
 
-    <div id="main"></div>
-
-    <div class="description">
-        这是一个手动更新的网络故障记录看板。每一个红色方块代表当天遭遇的网络波动次数，颜色越深，代表断网情况越严重。
+    <div class="calendar-wrapper">
+        <div id="tooltip"></div>
+        <svg id="calendar-svg" width="780" height="130"></svg>
+        
+        <div class="calendar-footer">
+            <div style="font-size: 12px; color: var(--color-text-muted);">Huhumeow Status</div>
+            <div class="legend">
+                <span>Less</span>
+                <div class="legend-box" style="background: var(--color-calendar-graph-day-bg);"></div>
+                <div class="legend-box" style="background: var(--color-calendar-graph-day-L1-bg);"></div>
+                <div class="legend-box" style="background: var(--color-calendar-graph-day-L2-bg);"></div>
+                <div class="legend-box" style="background: var(--color-calendar-graph-day-L3-bg);"></div>
+                <div class="legend-box" style="background: var(--color-calendar-graph-day-L4-bg);"></div>
+                <span>More</span>
+            </div>
+        </div>
     </div>
 
+    <div class="about-section">
+        <p>因众所周知的原因，呼呼喵需使用大量妙妙工具来访问互联网，然而，即便呼呼喵已经花费了大量的金钱和时间来配置这些道具，它们仍会因各种神秘原因停止运作。</p>
+        <p>尝试访问 Claude 可以有效检查自己的网络环境。当无法访问 Claude 时，我会更新此网页对应 Github 仓库中的 json 文件。相邻两次更新的间隔不会少于三个小时。</p>
+        <p>本网页会可视化 json 中的信息，以直观展示呼呼喵的联网困境。</p>
+        <p>欢迎访问呼呼喵的 <a href="https://github.com/HuhuMeow" target="_blank">Github 主页</a> 。</p>
+    </div>
+
+    <footer class="site-footer">
+        This page was crafted by Gemini 3 Thinking
+    </footer>
+
     <script>
-        var chartDom = document.getElementById('main');
-        var myChart = echarts.init(chartDom); // 移除 'dark' 模式，回归亮色
+        const year = 2026;
+        const svg = document.getElementById('calendar-svg');
+        const tooltip = document.getElementById('tooltip');
+        
+        // 布局参数
+        const boxSize = 11, gap = 4, leftMargin = 30, topMargin = 20;
 
-        // 路径建议使用相对路径 './data.json' 以确保在 GitHub Pages 正常加载
-        fetch('./data.json')
-            .then(res => res.json())
-            .then(data => {
-                const option = {
-                    tooltip: { 
-                        formatter: function (p) {
-                            return p.data[0] + ' : ' + p.data[1] + ' 次故障';
-                        }
-                    },
-                    visualMap: {
-                        min: 0,
-                        max: 10,
-                        show: false, // 极简主义：隐藏侧边进度条
-                        inRange: { 
-                            // 浅红色到深红色的渐变
-                            color: ['#fde8e8', '#e02424'] 
-                        }
-                    },
-                    calendar: {
-                        top: 20,
-                        left: 'center',
-                        range: '2026',
-                        cellSize: [13, 13],
-                        splitLine: { show: false },
-                        itemStyle: {
-                            borderWidth: 2,
-                            borderColor: '#fff' // 方格间的白线
-                        },
-                        yearLabel: { show: false }, // 隐藏年份
-                        dayLabel: { nameMap: 'cn', firstDay: 1 },
-                        monthLabel: { nameMap: 'cn' }
-                    },
-                    series: {
-                        type: 'heatmap', // 改用 heatmap 效果更像贡献图
-                        coordinateSystem: 'calendar',
-                        data: data
-                    }
+        // 颜色映射函数
+        function getColor(count) {
+            if (!count || count === 0) return 'var(--color-calendar-graph-day-bg)';
+            if (count <= 3) return 'var(--color-calendar-graph-day-L1-bg)';
+            if (count <= 6) return 'var(--color-calendar-graph-day-L2-bg)';
+            if (count <= 9) return 'var(--color-calendar-graph-day-L3-bg)';
+            return 'var(--color-calendar-graph-day-L4-bg)';
+        }
+
+        // 加载 JSON 数据，支持本地预览的自动降级鲁棒方案
+        async function loadDataAndRender() {
+            try {
+                // 尝试加载数据
+                const response = await fetch('data.json');
+                if (!response.ok) throw new Error('Data file not found');
+                const networkData = await response.json();
+                
+                // 成功加载则渲染真实数据
+                render(networkData);
+                console.log("Data loaded successfully from data.json");
+            } catch (err) {
+                // 如果 fetch 失败（例如本地 CORS 限制），使用内置备用数据供预览
+                console.warn("Unable to load data.json (CORS or missing file). Using fallback data for preview.", err);
+                
+                // 内置备用数据 (演示用)
+                const fallbackData = {
+                    "2026-03-20": 2, "2026-03-23": 10, "2026-03-24": 3
                 };
-                myChart.setOption(option);
-            })
-            .catch(err => console.error('数据加载失败:', err));
+                
+                render(fallbackData);
+            }
+        }
 
-        // 响应式处理
-        window.onresize = function() {
-            myChart.resize();
-        };
+        // 渲染 SVG 逻辑
+        function render(networkData) {
+            // 清空现有 SVG 内容（防止重复渲染）
+            while (svg.firstChild) { svg.removeChild(svg.firstChild); }
+
+            // 渲染星期标签 (Mon, Wed, Fri)
+            const days = ['Mon', 'Wed', 'Fri'];
+            days.forEach((day, i) => {
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.textContent = day;
+                text.setAttribute("x", 0);
+                text.setAttribute("y", topMargin + (i * 2 + 1) * (boxSize + gap) + 9);
+                text.setAttribute("class", "label");
+                svg.appendChild(text);
+            });
+
+            const startDate = new Date(year, 0, 1);
+            const startDayOffset = (startDate.getDay() + 6) % 7; // 让周一作为第一行
+            
+            let currentMonth = -1;
+
+            // 循环生成 366 天（适配闰年）
+            for (let i = 0; i < 366; i++) {
+                const date = new Date(year, 0, 1 + i);
+                if (date.getFullYear() !== year) break;
+
+                const dateStr = date.toISOString().split('T')[0];
+                const count = networkData[dateStr] || 0;
+
+                const weekIndex = Math.floor((i + startDayOffset) / 7);
+                const dayIndex = (i + startDayOffset) % 7;
+
+                // 渲染月份标签 (Jan, Feb, ...)
+                if (date.getMonth() !== currentMonth) {
+                    currentMonth = date.getMonth();
+                    const monthText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    monthText.textContent = date.toLocaleString('en-US', { month: 'short' });
+                    monthText.setAttribute("x", leftMargin + weekIndex * (boxSize + gap));
+                    monthText.setAttribute("y", 12);
+                    monthText.setAttribute("class", "label");
+                    svg.appendChild(monthText);
+                }
+
+                // 创建矩形格子
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("x", leftMargin + weekIndex * (boxSize + gap));
+                rect.setAttribute("y", topMargin + dayIndex * (boxSize + gap));
+                rect.setAttribute("width", boxSize);
+                rect.setAttribute("height", boxSize);
+                rect.setAttribute("rx", 2); // 圆角
+                rect.setAttribute("fill", getColor(count));
+                rect.setAttribute("class", "day");
+
+                // 3. 交互逻辑：使用 absolute 定位以适配移动端滚动
+                rect.onmouseenter = (e) => {
+                    const msg = count > 0 ? `${count} network issues` : 'No network issues';
+                    const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                    
+                    tooltip.innerHTML = `<strong>${msg}</strong><br/>${formattedDate}`;
+                    tooltip.style.visibility = 'visible';
+                    tooltip.style.opacity = '1';
+                    
+                    // 获取 rect 的坐标 (x, y) 相对于 SVG
+                    const rectX = rect.getAttribute('x') * 1;
+                    const rectY = rect.getAttribute('y') * 1;
+
+                    // Tooltip 在容器内 absolute 定位
+                    // 相对于 .calendar-wrapper 定位，不需要考虑 window.scrollX
+                    tooltip.style.left = (rectX + boxSize/2) + 'px';
+                    tooltip.style.top = (rectY) + 'px';
+                };
+                rect.onmouseleave = () => {
+                    tooltip.style.visibility = 'hidden';
+                    tooltip.style.opacity = '0';
+                };
+
+                svg.appendChild(rect);
+            }
+        }
+
+        // 初始化
+        loadDataAndRender();
     </script>
 </body>
 </html>
